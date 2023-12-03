@@ -19,7 +19,7 @@ struct Day03: AdventDay {
 
   // Replace this with your solution for the first part of the day's challenge.
   func part1() -> Any {
-    var sum: UInt = 0
+    var sum: UInt64 = 0
     let lines = lines()
     for (lineIndex, line) in lines.enumerated() {
       let startLineIndex = lineIndex > 0 ? lineIndex - 1 : 0
@@ -36,9 +36,67 @@ struct Day03: AdventDay {
     }
     return sum
   }
+
+  func part2() -> Any {
+    var sum: UInt64 = 0
+    let lines = lines()
+    for (lineIndex, line) in lines.enumerated() {
+      let startLineIndex = lineIndex > 0 ? lineIndex - 1 : 0
+      let endLineIndex = lineIndex < lines.count - 1 ? lineIndex + 1 : lines.count - 1
+      var iterator = GearIterator(line: line)
+      while let gearIndex = iterator.next() {
+        let adjacentIndicesInfo = (startLineIndex ... endLineIndex).reduce(into: [((Int, Int), Int)]()) { result, lineIndex in
+          if let singleIndices = lines[lineIndex].numberIndices(position: gearIndex) {
+            result.append((singleIndices, lineIndex))
+          } else {
+            if let leftIndices = lines[lineIndex].numberIndices(position: gearIndex - 1) {
+              result.append((leftIndices, lineIndex))
+            }
+
+            if let rightIndices = lines[lineIndex].numberIndices(position: gearIndex + 1) {
+              result.append((rightIndices, lineIndex))
+            }
+          }
+        }
+
+        if adjacentIndicesInfo.count == 2 {
+          sum += adjacentIndicesInfo.map { info in
+            lines[info.1].number(indices: info.0)
+          }
+          .reduce(1, *)
+        }
+      }
+    }
+
+    return sum
+  }
 }
 
-struct NumbersIterator: IteratorProtocol {
+private struct GearIterator: IteratorProtocol {
+  let line: String
+
+  init(line: String) {
+    self.line = line
+  }
+
+  mutating func next() -> Int? {
+    while position < line.count, line[line.index(line.startIndex, offsetBy: position)] != "*" {
+      position += 1
+    }
+
+    guard position < line.count else {
+      return nil
+    }
+
+    let result = position
+    position += 1
+    return result
+  }
+
+  private var position = 0
+}
+
+private struct NumbersIterator: IteratorProtocol {
   let line: String
 
   init(line: String) {
@@ -65,8 +123,8 @@ struct NumbersIterator: IteratorProtocol {
     let end: Int
     let raw: String
 
-    var value: UInt {
-      UInt(raw)!
+    var value: UInt64 {
+      UInt64(raw)!
     }
   }
 
@@ -74,7 +132,7 @@ struct NumbersIterator: IteratorProtocol {
 }
 
 extension String {
-  func nextNumberIndexes(start: Int) -> (Int, Int)? {
+  fileprivate func nextNumberIndexes(start: Int) -> (Int, Int)? {
     var numberStart = start
     while numberStart < count {
       if self[index(startIndex, offsetBy: numberStart)].isNumber {
@@ -102,7 +160,7 @@ extension String {
     return (numberStart, endIndex)
   }
 
-  func numberHasAdjacentSymbol(numberIndexes: (Int, Int)) -> Bool {
+  fileprivate func numberHasAdjacentSymbol(numberIndexes: (Int, Int)) -> Bool {
     let start = numberIndexes.0 - 1 > 0 ? numberIndexes.0 - 1 : 0
     let end = numberIndexes.1 + 1 < count ? numberIndexes.1 + 1 : count - 1
 
@@ -114,10 +172,41 @@ extension String {
 
     return false
   }
+
+  fileprivate func numberIndices(position: Int) -> (Int, Int)? {
+    guard position >= 0,
+          position < count,
+          self[index(startIndex, offsetBy: position)].isNumber
+    else {
+      return nil
+    }
+
+    var start = position
+    var prev = start - 1
+    while prev >= 0, self[index(startIndex, offsetBy: prev)].isNumber {
+      start = prev
+      prev -= 1
+    }
+
+    var end = position
+    var next = end + 1
+    while next < count, self[index(startIndex, offsetBy: next)].isNumber {
+      end = next
+      next += 1
+    }
+
+    return (start, end)
+  }
+
+  fileprivate func number(indices: (Int, Int)) -> UInt64 {
+    let start = index(startIndex, offsetBy: indices.0)
+    let end = index(startIndex, offsetBy: indices.1)
+    return UInt64(self[start ... end])!
+  }
 }
 
 extension Character {
-  func isSymbol() -> Bool {
+  fileprivate func isSymbol() -> Bool {
     !isNumber && self != "."
   }
 }
